@@ -1,0 +1,7 @@
+name = "bookmytest"
+main = "worker.js"
+compatibility_date = "2024-09-01"
+
+[[kv_namespaces]]
+binding = "DATA_STORE"
+id = "83ae80b987f74c0db99f70a678aef3c8"
